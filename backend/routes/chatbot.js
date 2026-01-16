@@ -1,9 +1,10 @@
 // backend/routes/chatbot.js
 const express = require("express");
 const router = express.Router();
-const auth = require("../middleware/authMiddleware");
+const fetch = require("node-fetch");
+// const auth = require("../middleware/authMiddleware");
 
-router.use(auth);
+// router.use(auth);
 
 function toHfMessages(frontendMessages) {
   return frontendMessages.map(m => ({
@@ -42,6 +43,37 @@ router.post("/chat", async (req, res) => {
     const { messages } = req.body;
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Messages array required" });
+    }
+
+    // Get the last user message
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || lastMessage.sender !== "user") {
+      return res.status(400).json({ error: "User message required" });
+    }
+
+    // Check if it's a valid poster request using ML model
+    try {
+      const mlPort = process.env.ML_PORT || 5001;
+      const mlResponse = await fetch(`http://localhost:${mlPort}/score`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompts: [lastMessage.text] })
+      });
+
+      if (mlResponse.ok) {
+        const mlResult = await mlResponse.json();
+        const score = mlResult.scores[0];
+        console.log(`ML Score for "${lastMessage.text}": ${score}`);
+        
+        // If score is below threshold (0.3), it's not a poster request
+        if (score < 0.3) {
+          return res.json({ 
+            reply: "Not a request for a visual poster. I am an AI *poster* prompt assistant." 
+          });
+        }
+      }
+    } catch (mlError) {
+      console.error("ML scoring failed, proceeding without validation:", mlError.message);
     }
 
     const hfMessagesRaw = toHfMessages(messages);
