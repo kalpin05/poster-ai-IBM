@@ -42,11 +42,8 @@ npm run dev:frontend
 
 ```bash
 cd ml
-# install python dependencies
 pip install -r requirements.txt
-
-# run the ML microservice
-python run_ranker.py --input_path prompt_scores.jsonl --out_dir prompt_ranker
+python score_service.py
 ```
 
 ### **4. Open the app**
