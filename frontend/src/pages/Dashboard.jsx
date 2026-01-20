@@ -9,213 +9,106 @@ export default function Dashboard() {
   const [selectedPoster, setSelectedPoster] = useState(null);
   const nav = useNavigate();
 
-  const handleImageLoad = (posterId) => {
-    setImageLoading((prev) => ({ ...prev, [posterId]: false }));
+  const handleImageLoad = (id) => {
+    setImageLoading((p) => ({ ...p, [id]: false }));
   };
 
-  const handleImageLoadStart = (posterId) => {
-    setImageLoading((prev) => ({ ...prev, [posterId]: true }));
+  const handleImageLoadStart = (id) => {
+    setImageLoading((p) => ({ ...p, [id]: true }));
   };
 
-  const openFullScreen = (poster) => {
-    setSelectedPoster(poster);
-  };
-
-  const closeFullScreen = () => {
-    setSelectedPoster(null);
-  };
-
-  // ✅ CORRECT & RELIABLE DOWNLOAD FUNCTION
-  const downloadPoster = async (posterUrl, posterId) => {
-    try {
-      const response = await fetch(posterUrl, { mode: "cors" });
-      const blob = await response.blob();
-
-      const objectUrl = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = `poster-${posterId}.png`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(objectUrl);
-    } catch (err) {
-      console.error("Download failed", err);
-      alert("Failed to download poster. Please try again.");
-    }
+  const downloadPoster = async (url, id) => {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `poster-${id}.png`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await api("/posters");
-        setPosters(res.posters || []);
-      } catch (err) {
-        console.error("Failed to load posters", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+    api("/posters")
+      .then((res) => setPosters(res.posters || []))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading)
+  if (loading) {
     return (
-      <div style={{ textAlign: "center", padding: "50px" }}>
-        <div style={{ fontSize: "24px", marginBottom: "10px" }}>
-          <span style={{ display: "inline-block", animation: "spin 1s linear infinite" }}>
-            ⚙️
-          </span>
-        </div>
-        <p>Loading your posters...</p>
+      <div style={styles.center}>
+        <div style={styles.spinner} />
+        <p style={{ color: palette.textLight }}>Loading posters…</p>
       </div>
     );
+  }
 
   return (
-    <div>
-      <button
-        onClick={() => nav("/generate")}
-        style={{ marginBottom: 16, padding: "8px 16px" }}
-      >
-        Generate Poster
-      </button>
+    <div style={styles.page}>
+      {/* Header */}
+      <div style={styles.header}>
+        <h2 style={styles.title}>Your Posters</h2>
+        <button onClick={() => nav("/generate")} style={styles.primaryBtn}>
+          + Generate Poster
+        </button>
+      </div>
 
+      {/* Gallery */}
       {posters.length === 0 ? (
-        <div>No posters yet</div>
+        <div style={styles.empty}>
+          <p>No posters yet.</p>
+          <button onClick={() => nav("/generate")} style={styles.primaryBtn}>
+            Create your first poster
+          </button>
+        </div>
       ) : (
-        posters.map((p) => (
-          <div
-            key={p.id}
-            style={{
-              marginBottom: "20px",
-              padding: "10px",
-              border: "1px solid #ddd",
-              borderRadius: "8px"
-            }}
-          >
-            <h4>{p.title}</h4>
-
-            <div style={{ position: "relative", width: 300, height: 300 }}>
-              {imageLoading[p.id] && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    textAlign: "center"
-                  }}
-                >
-                  <div style={{ fontSize: "24px", marginBottom: "10px" }}>
-                    <span style={{ display: "inline-block", animation: "spin 1s linear infinite" }}>
-                      ⚙️
-                    </span>
-                  </div>
-                  <p style={{ fontSize: "14px", color: "#666" }}>
-                    Loading poster...
-                  </p>
-                </div>
-              )}
-
-              <img
-                src={p.imageUrl}
-                alt={p.title}
-                style={{
-                  width: 300,
-                  height: 300,
-                  objectFit: "cover",
-                  display: imageLoading[p.id] ? "none" : "block",
-                  cursor: "pointer",
-                  transition: "transform 0.2s"
-                }}
-                onLoadStart={() => handleImageLoadStart(p.id)}
-                onLoad={() => handleImageLoad(p.id)}
-                onError={() => handleImageLoad(p.id)}
-                onClick={() => openFullScreen(p)}
-                onMouseEnter={(e) => (e.target.style.transform = "scale(1.05)")}
-                onMouseLeave={(e) => (e.target.style.transform = "scale(1)")}
-              />
+        <div style={styles.grid}>
+          {posters.map((p) => (
+            <div
+              key={p.id}
+              style={styles.card}
+              onClick={() => setSelectedPoster(p)}
+            >
+              <div style={styles.thumb}>
+                {imageLoading[p.id] && <div style={styles.cardLoader} />}
+                <img
+                  src={p.imageUrl}
+                  alt={p.title}
+                  onLoadStart={() => handleImageLoadStart(p.id)}
+                  onLoad={() => handleImageLoad(p.id)}
+                  style={styles.image}
+                />
+              </div>
+              <div style={styles.cardFooter}>
+                <span style={styles.cardTitle}>{p.title}</span>
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
 
-      {/* FULL SCREEN MODAL */}
+      {/* MODAL */}
       {selectedPoster && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0,0,0,0.9)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000
-          }}
-          onClick={closeFullScreen}
-        >
-          <div
-            style={{
-              position: "relative",
-              maxWidth: "90vw",
-              maxHeight: "90vh",
-              backgroundColor: "#fff",
-              borderRadius: "8px",
-              padding: "20px"
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              style={{
-                position: "absolute",
-                top: "10px",
-                right: "10px",
-                backgroundColor: "#ff4444",
-                color: "#fff",
-                border: "none",
-                borderRadius: "50%",
-                width: "30px",
-                height: "30px",
-                cursor: "pointer"
-              }}
-              onClick={closeFullScreen}
-            >
-              ×
-            </button>
-
+        <div style={styles.overlay} onClick={() => setSelectedPoster(null)}>
+          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <img
               src={selectedPoster.imageUrl}
               alt={selectedPoster.title}
-              style={{
-                maxWidth: "100%",
-                maxHeight: "70vh",
-                objectFit: "contain",
-                borderRadius: "4px"
-              }}
+              style={styles.modalImage}
             />
-
-            <div style={{ textAlign: "center", marginTop: "20px" }}>
+            <div style={styles.modalActions}>
               <button
-                style={{
-                  backgroundColor: "#007bff",
-                  color: "#fff",
-                  border: "none",
-                  padding: "12px 24px",
-                  fontSize: "16px",
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
                 onClick={() =>
                   downloadPoster(selectedPoster.imageUrl, selectedPoster.id)
                 }
+                style={styles.primaryBtn}
               >
-                ⬇ Download Poster
+                Download
+              </button>
+              <button
+                onClick={() => setSelectedPoster(null)}
+                style={styles.secondaryBtn}
+              >
+                Close
               </button>
             </div>
           </div>
@@ -225,12 +118,169 @@ export default function Dashboard() {
   );
 }
 
-// CSS animation
-const style = document.createElement("style");
-style.textContent = `
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* ===================== PALETTE ===================== */
+
+const palette = {
+  bg: "#210635",
+  bgAlt: "#420D4B",
+  card: "#7B337E",
+  cardAlt: "#6667AB",
+  button: "#F5D5E0",
+  buttonText: "#210635",
+  textLight: "#FFFFFF"
+};
+
+/* ===================== STYLES ===================== */
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    width: "99%",
+    overflowX: "hidden",     // ✅ REMOVES HORIZONTAL SCROLL
+    padding: 24,
+    background: `linear-gradient(180deg, ${palette.bg}, ${palette.bgAlt})`,
+    fontFamily: "Inter, system-ui, sans-serif",
+    color: palette.textLight
+  },
+
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24
+  },
+
+  title: {
+    fontSize: 22,
+    fontWeight: 600
+  },
+
+  primaryBtn: {
+    background: palette.button,
+    color: palette.buttonText,
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: 10,
+    fontWeight: 600,
+    cursor: "pointer"
+  },
+
+  secondaryBtn: {
+    background: palette.cardAlt,
+    color: palette.textLight,
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: 10,
+    cursor: "pointer"
+  },
+
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+    gap: 20
+  },
+
+  card: {
+    background: palette.card,
+    borderRadius: 14,
+    overflow: "hidden",
+    cursor: "pointer",
+    boxShadow: "0 12px 32px rgba(0,0,0,0.45)"
+  },
+
+  thumb: {
+    position: "relative",
+    width: "100%",
+    aspectRatio: "1 / 1"
+  },
+
+  image: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover"
+  },
+
+  cardFooter: {
+    padding: 10,
+    background: palette.cardAlt
+  },
+
+  cardTitle: {
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis"
+  },
+
+  empty: {
+    textAlign: "center",
+    padding: 60,
+    maxWidth: 420,
+    margin: "100px auto",
+    background: palette.cardAlt,
+    borderRadius: 16
+  },
+
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(33,6,53,0.95)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000
+  },
+
+  modal: {
+    background: palette.bg,
+    padding: 20,
+    borderRadius: 16
+  },
+
+  modalImage: {
+    maxWidth: "100%",
+    maxHeight: "70vh",
+    objectFit: "contain"
+  },
+
+  modalActions: {
+    marginTop: 16,
+    display: "flex",
+    gap: 10,
+    justifyContent: "center"
+  },
+
+  center: {
+    height: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+
+  spinner: {
+    width: 32,
+    height: 32,
+    border: `3px solid ${palette.cardAlt}`,
+    borderTopColor: palette.button,
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite"
+  },
+
+  cardLoader: {
+    position: "absolute",
+    inset: 0,
+    background: `linear-gradient(90deg, ${palette.bgAlt}, ${palette.card}, ${palette.bgAlt})`,
+    animation: "shimmer 1.5s infinite"
+  }
+};
+
+/* animations */
+const css = document.createElement("style");
+css.textContent = `
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer {
+  0% { background-position: -200px 0 }
+  100% { background-position: 200px 0 }
 }
 `;
-document.head.appendChild(style);
+document.head.appendChild(css);

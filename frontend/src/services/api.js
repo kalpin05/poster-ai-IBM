@@ -22,7 +22,7 @@ export async function api(path, opts = {}) {
     const json = JSON.parse(text);
     if (!resp.ok) throw json;
     return json;
-  } catch (err) {
+  } catch {
     // If response is not JSON, throw the raw text for debugging
     if (!resp.ok) {
       throw { status: resp.status, body: text };

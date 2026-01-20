@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import ChatbotButton from "./components/ChatbotButtom";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -12,9 +12,12 @@ import Protected from "./components/Protected";
 export default function App() {
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const u = localStorage.getItem("user");
-    if (u) setUser(JSON.parse(u));
+    if (u) {
+      const userData = JSON.parse(u);
+      setUser(userData);
+    }
   }, []);
 
   return (
